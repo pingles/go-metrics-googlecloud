@@ -87,7 +87,7 @@ func ListMetrics(client *http.Client, project string) ([]*cm.MetricDescriptor, e
 	return resp.Metrics, nil
 }
 
-func newInt64TimeseriesPoint(metricName string, intValue int64, doubleValue float64, now time.Time) *cm.TimeseriesPoint {
+func newTimeseriesPoint(metricName string, intValue int64, doubleValue float64, now time.Time, labels map[string]string) *cm.TimeseriesPoint {
 	point := &cm.Point{
 		Start: now.Format(time.RFC3339),
 		End:   now.Format(time.RFC3339),
@@ -98,9 +98,15 @@ func newInt64TimeseriesPoint(metricName string, intValue int64, doubleValue floa
 		point.DoubleValue = &doubleValue
 	}
 
+	namespacedLabels := make(map[string]string, len(labels))
+	for k, v := range labels {
+		namespacedLabels[NameInDomain(k)] = v
+	}
+
 	return &cm.TimeseriesPoint{
 		TimeseriesDesc: &cm.TimeseriesDescriptor{
 			Metric: metricName,
+			Labels: namespacedLabels,
 		},
 		Point: point,
 	}
@@ -111,6 +117,7 @@ type Timeseries struct {
 	Now         time.Time
 	Int64Value  int64
 	DoubleValue float64
+	Labels      map[string]string
 }
 
 func WriteTimeseries(client *http.Client, project string, timeseries []*Timeseries) error {
@@ -121,7 +128,8 @@ func WriteTimeseries(client *http.Client, project string, timeseries []*Timeseri
 	labels := make(map[string]string)
 	timeseriesPoints := make([]*cm.TimeseriesPoint, len(timeseries))
 	for ix, t := range timeseries {
-		timeseriesPoints[ix] = newInt64TimeseriesPoint(t.MetricName, t.Int64Value, t.DoubleValue, t.Now)
+		p := newTimeseriesPoint(t.MetricName, t.Int64Value, t.DoubleValue, t.Now, t.Labels)
+		timeseriesPoints[ix] = p
 	}
 
 	request := &cm.WriteTimeseriesRequest{
