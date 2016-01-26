@@ -5,6 +5,7 @@ import (
 	cm "google.golang.org/api/cloudmonitoring/v2beta2"
 	"net/http"
 	"strings"
+	"time"
 )
 
 const (
@@ -84,4 +85,42 @@ func ListMetrics(client *http.Client, project string) ([]*cm.MetricDescriptor, e
 		return nil, err
 	}
 	return resp.Metrics, nil
+}
+
+func newInt64TimeseriesPoint(metricName string, value int64, now time.Time) *cm.TimeseriesPoint {
+	return &cm.TimeseriesPoint{
+		TimeseriesDesc: &cm.TimeseriesDescriptor{
+			Metric: metricName,
+		},
+		Point: &cm.Point{
+			Int64Value: &value,
+			Start:      now.Format(time.RFC3339),
+			End:        now.Format(time.RFC3339),
+		},
+	}
+}
+
+type Timeseries struct {
+	MetricName string
+	Int64Value int64
+	Now        time.Time
+}
+
+func WriteTimeseries(client *http.Client, project string, timeseries []*Timeseries) error {
+	service, err := cm.New(client)
+	if err != nil {
+		return err
+	}
+	labels := make(map[string]string)
+	timeseriesPoints := make([]*cm.TimeseriesPoint, len(timeseries))
+	for ix, t := range timeseries {
+		timeseriesPoints[ix] = newInt64TimeseriesPoint(t.MetricName, t.Int64Value, t.Now)
+	}
+
+	request := &cm.WriteTimeseriesRequest{
+		CommonLabels: labels,
+		Timeseries:   timeseriesPoints,
+	}
+	_, err = service.Timeseries.Write(project, request).Do()
+	return err
 }
