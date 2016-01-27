@@ -69,7 +69,6 @@ func newReporter(client *http.Client, project string) *reporter {
 }
 
 func (r *reporter) report(name string, val interface{}) {
-	fmt.Println("reporting", name)
 	switch metric := val.(type) {
 	case metrics.Meter:
 		r.reportMeter(name, metric)
