@@ -27,8 +27,8 @@ func (r *reporter) ensureMetric(name string, t string) error {
 	return nil
 }
 
-func (r *reporter) reportMeter(name string, val metrics.Meter) {
-	r.ensureMetric(fmt.Sprintf("%s.count", name), Int)
+func (r *reporter) reportMetric(metricName string, metricType string, val interface{}) {
+	r.ensureMetric(metricName, metricType)
 	hostname, err := os.Hostname()
 	if err != nil {
 		fmt.Println("error retrieving hostname, can't report:", err.Error())
@@ -37,18 +37,26 @@ func (r *reporter) reportMeter(name string, val metrics.Meter) {
 	labels := make(map[string]string, 1)
 	labels[hostnameLabelKey] = hostname
 
-	timeseries := []*Timeseries{
-		&Timeseries{
-			MetricName: NameInDomain(fmt.Sprintf("%s.count", name)),
-			Now:        time.Now(),
-			Int64Value: val.Count(),
-			Labels:     labels,
-		},
+	timeseries := &Timeseries{
+		MetricName: NameInDomain(metricName),
+		Now:        time.Now(),
+		Labels:     labels,
 	}
-	err = WriteTimeseries(r.client, r.project, timeseries)
+
+	if metricType == Int {
+		timeseries.Int64Value = val.(int64)
+	} else if metricType == Double {
+		timeseries.DoubleValue = val.(float64)
+	}
+
+	err = WriteTimeseries(r.client, r.project, []*Timeseries{timeseries})
 	if err != nil {
 		fmt.Println("error writing timeseries:", err.Error())
 	}
+}
+
+func (r *reporter) reportMeter(name string, val metrics.Meter) {
+	r.reportMetric(fmt.Sprintf("%s.count", name), Int, val.Count())
 }
 
 type reporter struct {
