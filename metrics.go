@@ -11,6 +11,11 @@ import (
 const hostnameLabelKey = "hostname"
 
 func (r *reporter) ensureMetric(name string, t string) error {
+	_, tracked := r.trackedMetrics[name]
+	if tracked {
+		return nil
+	}
+
 	fullMetricName := NameInDomain(name)
 	metric := &Metric{
 		Name: fullMetricName,
@@ -24,6 +29,8 @@ func (r *reporter) ensureMetric(name string, t string) error {
 	if err != nil {
 		fmt.Println("error creating metric:", err.Error())
 	}
+	r.trackedMetrics[name] = true
+
 	return nil
 }
 
@@ -57,15 +64,20 @@ func (r *reporter) reportMetric(metricName string, metricType string, val interf
 
 func (r *reporter) reportMeter(name string, val metrics.Meter) {
 	r.reportMetric(fmt.Sprintf("%s.count", name), Int, val.Count())
+	r.reportMetric(fmt.Sprintf("%s.one-minute", name), Double, val.Rate1())
+	r.reportMetric(fmt.Sprintf("%s.five-minute", name), Double, val.Rate5())
+	r.reportMetric(fmt.Sprintf("%s.fifteen-minute", name), Double, val.Rate15())
+	r.reportMetric(fmt.Sprintf("%s.mean", name), Double, val.RateMean())
 }
 
 type reporter struct {
-	client  *http.Client
-	project string
+	client         *http.Client
+	project        string
+	trackedMetrics map[string]bool
 }
 
 func newReporter(client *http.Client, project string) *reporter {
-	return &reporter{client, project}
+	return &reporter{client, project, make(map[string]bool)}
 }
 
 func (r *reporter) report(name string, val interface{}) {
