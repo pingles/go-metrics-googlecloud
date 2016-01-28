@@ -70,6 +70,10 @@ func (r *reporter) reportMeter(name string, val metrics.Meter) {
 	r.reportMetric(fmt.Sprintf("%s.mean", name), Double, val.RateMean())
 }
 
+func (r *reporter) reportCounter(name string, val metrics.Counter) {
+	r.reportMetric(name, Int, val.Count())
+}
+
 type reporter struct {
 	client         *http.Client
 	project        string
@@ -84,6 +88,8 @@ func (r *reporter) report(name string, val interface{}) {
 	switch metric := val.(type) {
 	case metrics.Meter:
 		r.reportMeter(name, metric)
+	case metrics.Counter:
+		r.reportCounter(name, metric)
 	}
 }
 
